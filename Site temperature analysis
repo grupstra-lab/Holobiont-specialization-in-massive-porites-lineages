@@ -1,0 +1,266 @@
+############Temperature data
+tempdat <- read.csv("temperature_data.csv")
+
+#Set site colors
+cols <- c("#253494","#1d91c0","#7fcdbb","#800026","#fc4e2a","#fd8d3c")
+
+#Visualize raw temperature data
+tempfig1 <- ggplot(tempdat, aes(x=as.POSIXct(Date_time, format= "%m / %d / %Y %H:%M"), y=Mean_temp, color=factor(Site, levels = c("Ngerur", "Outer Taoch", "Ngelsibel","Risong","Taoch","Mercherchar"))))+
+  scale_color_manual(values=cols)+
+  geom_line()+
+  theme_classic()+
+  labs(x="Date", y="Temperature (°C)", color="Site")
+tempfig1
+
+#####Daily mean temperature
+tempdatmeans <- tempdat %>%
+  dplyr::mutate(datex=Date_time)
+
+tempdatmeans <- tempdatmeans %>%
+  separate(datex, c("date", "time"), " ")
+
+tempdatmeans2 <- tempdatmeans %>%
+  dplyr::group_by(Site, date, Type) %>%
+  dplyr::summarize(dailymean = mean(Mean_temp))
+
+sitevec=c(21,22)
+
+tempfig <- ggplot(tempdatmeans2, aes(x=factor(Type, levels = c("Outer", "Inner")), shape=factor(Type, levels = c("Outer", "Inner")),
+                                     y=dailymean, color=factor(Site, levels = c("Ngerur", "Outer Taoch", "Ngelsibel","Risong","Taoch","Mercherchar")), 
+                                     fill=factor(Site, levels = c("Ngerur", "Outer Taoch", "Ngelsibel","Risong","Taoch","Mercherchar"))))+
+  geom_violin(alpha=1/2)+
+  geom_quasirandom(dodge.width=.9, alpha=1/3)+
+  theme_classic()+
+  labs(x="",y="Daily mean temperature (°C)", fill="Site", color="Site")+
+  scale_color_manual(values=cols)+
+  scale_shape_manual(values=sitevec)+
+  scale_fill_manual(values=cols)+
+  geom_signif(comparisons = list(c("Outer", "Inner")), annotation="*",
+              map_signif_level=TRUE, tip_length = 0,color="black")
+tempfig
+
+library(lme4)
+library(car)
+
+temptest <-lmer(dailymean~Type + (1|Site), data=tempdatmeans2)
+Anova(temptest, test="F")
+check_model((temptest))
+
+#Calculate overall mean of daily mean temperatures
+tempdatmeans3 <- tempdatmeans2 %>%
+  group_by(Type) %>%
+  summarize(overalmean = mean(dailymean), SD=sd(dailymean))
+tempdatmeans3
+
+#####Daily temperature range
+tempdatmeans <- tempdat %>%
+  dplyr::mutate(datex=Date_time)
+
+tempdatmeans <- tempdatmeans %>%
+  separate(datex, c("date", "time"), " ")
+
+#Calculate daily temperature ranges
+tempdatmeans2 <- tempdatmeans %>%
+  dplyr::group_by(Site, date, Type) %>%
+  dplyr::summarize(dmin = min(Mean_temp), dmax= max(Mean_temp))%>%
+  dplyr::mutate(dailyrange=dmax-dmin)
+
+#Calculate mean daily temperature range
+rangemeans <- tempdatmeans2 %>%
+  dplyr::group_by(Type, Site) %>%
+  dplyr::summarize(meanrange=mean(dailyrange), sd=sd(dailyrange))
+
+####Test for differences
+temptest <-lmer(dailyrange~Type + (1|Site), data=tempdatmeans2)
+Anova(temptest, test="F")
+
+#Visualize differences in daily temperature range
+rangefig <- ggplot(tempdatmeans2, aes(x=factor(Type, levels = c("Outer", "Inner")), 
+                                      y=dailyrange, color=factor(Site, levels = c("Ngerur", "Outer Taoch", "Ngelsibel","Risong","Taoch","Mercherchar")), 
+                                      fill=factor(Site, levels = c("Ngerur", "Outer Taoch", "Ngelsibel","Risong","Taoch","Mercherchar"))))+
+  geom_violin(alpha=1/2)+
+  theme_classic()+
+  labs(x="",y="Daily temperature range (°C)", fill="Site", color="Site")+
+  scale_color_manual(values=cols)+
+  scale_fill_manual(values=cols)+
+  theme(legend.position = "none")
+rangefig
+
+###Daily max temperature
+#Test for differences
+temptest <-lmer(dmax~Type + (1|Site), data=tempdatmeans2)
+Anova(temptest, test="F")
+check_model(temptest)
+
+maxfig <- ggplot(tempdatmeans2, aes(x=factor(Type, levels = c("Outer", "Inner")), 
+                                    y=dmax, color=factor(Site, levels = c("Ngerur", "Outer Taoch", "Ngelsibel","Risong","Taoch","Mercherchar")), 
+                                    fill=factor(Site, levels = c("Ngerur", "Outer Taoch", "Ngelsibel","Risong","Taoch","Mercherchar"))))+
+  geom_violin(alpha=1/2)+
+  geom_signif(comparisons = list(c("Outer", "Inner")), annotation="*",
+              map_signif_level=TRUE, tip_length = 0,color="black")+
+  labs(x="",y="Daily max temperature (°C)", fill="Site", color="Site")+
+  scale_color_manual(values=cols)+
+  theme_classic()+
+  scale_fill_manual(values=cols)+
+  theme(legend.position = "none")
+maxfig
+
+#calculate mean daily max temperature
+maxmean <- tempdatmeans2 %>%
+  dplyr::group_by(Type)%>%
+  dplyr::summarize(mean=mean(dmax), sd=sd(dmax))
+
+####Daily min temperature
+#Test for differences
+temptest <-lmer(dmin~Type + (1|Site), data=tempdatmeans2)
+Anova(temptest, test="F")
+check_model(temptest)
+
+#Visualize differences
+minfig <- ggplot(tempdatmeans2, aes(x=factor(Type, levels = c("Outer", "Inner")), 
+                                    y=dmin, color=factor(Site, levels = c("Ngerur", "Outer Taoch", "Ngelsibel","Risong","Taoch","Mercherchar")), 
+                                    fill=factor(Site, levels = c("Ngerur", "Outer Taoch", "Ngelsibel","Risong","Taoch","Mercherchar"))))+
+  geom_violin(alpha=1/2)+
+  theme_classic()+
+  geom_signif(comparisons = list(c("Outer", "Inner")), annotation="*",
+              map_signif_level=TRUE, tip_length = 0,color="black")+
+  labs(x="",y="Daily min temperature (°C)", fill="Site", color="Site")+
+  scale_color_manual(values=cols)+
+  scale_fill_manual(values=cols)+
+  theme(legend.position = "none")
+minfig
+
+minmean <- tempdatmeans2 %>%
+  dplyr::group_by(Type)%>%
+  dplyr::summarize(mean=mean(dmin), sd=sd(dmin))
+
+#Arrange all temperature figures
+prow <- ggarrange(tempfig+ theme(legend.position="none")+geom_beeswarm(size=3/4, alpha=1/2, dodge.width=.9), 
+                  rangefig+ theme(legend.position="none")+geom_beeswarm(size=3/4, alpha=1/2, dodge.width=.9), 
+                  maxfig+ theme(legend.position="none")+geom_beeswarm(size=3/4, alpha=1/2, dodge.width=.9), 
+                  minfig+ theme(legend.position="none")+geom_beeswarm(size=3/4, alpha=1/2, dodge.width=.9), 
+                  labels = c("B", "C", "D", "E"))
+
+prow <- ggarrange(rangefig+ theme(legend.position="none")+geom_beeswarm(size=3/4, alpha=1/2, dodge.width=.9), 
+                  maxfig+ theme(legend.position="none")+geom_beeswarm(size=3/4, alpha=1/2, dodge.width=.9), 
+                  minfig+ theme(legend.position="none")+geom_beeswarm(size=3/4, alpha=1/2, dodge.width=.9), 
+                  labels = c("B", "C", "D"), nrow=1)
+top <- ggarrange(tempfig1, labels= "A")
+
+ggarrange(top, prow, nrow=2)
+
+
+############Light data
+##Set working directory
+#Load light data
+lightdat <- read.csv("lightdata.csv")
+unique(lightdat$Type)
+
+#Assign color to use in figures
+cols <- c("#253494","#1d91c0","#7fcdbb","#800026","#fc4e2a","#fd8d3c")
+
+####Visualize raw data
+lightfig1 <- ggplot(lightdat, aes(x=as.POSIXct(Date_time, format= "%m / %d / %Y %H:%M"), y=sqrt(Mean), color=factor(Site, levels = c("Ngerur", "Outer Taoch", "Ngelsibel","Risong","Taoch","Mercherchar"))))+
+  scale_color_manual(values=cols)+
+  geom_line()+
+  theme_classic()+
+  labs(x="Date", y="Light intensity: sqrt(lux)", color="Site")
+lightfig1
+
+#####Visualize daily mean light
+#Produce new variable with date and time
+lightdatmeans <- lightdat %>%
+  dplyr::mutate(datex=Date_time)
+
+lightdatmeans <- lightdatmeans %>%
+  separate(datex, c("date", "time"), " ")
+
+#Calculate daily means
+lightdatmeans2 <- lightdatmeans %>%
+  dplyr::group_by(Site, date, Type) %>%
+  dplyr::summarize(dailymean = mean(Mean))
+
+#Produce figure
+lightfigmean <- ggplot(lightdatmeans2, aes(x=factor(Type, levels = c("Outer", "Inner")), 
+                                     y=sqrt(dailymean), color=factor(Site, levels = c("Ngerur", "Outer Taoch", "Ngelsibel","Risong","Taoch","Mercherchar")), 
+                                     fill=factor(Site, levels = c("Ngerur", "Outer Taoch", "Ngelsibel","Risong","Taoch","Mercherchar"))))+
+  geom_violin(alpha=1/2)+
+  geom_beeswarm(dodge.width=.9, alpha=1/3)+
+  theme_classic()+
+  labs(x="",y="Daily mean light: sqrt(lux)", fill="Site", color="Site")+
+  scale_color_manual(values=cols)+
+  scale_fill_manual(values=cols)+
+  theme(legend.position = "none")
+lightfigmean
+
+#Test for differences in mean light
+lighttest <-lmer(log(dailymean)~Type + (1|Site), data=lightdatmeans2)
+Anova(lighttest, test="F")
+check_model(lighttest)
+
+####Visualize and test differences in light ranges
+lightdatmeans <- lightdat %>%
+  dplyr::mutate(datex=Date_time)
+
+lightdatmeans <- lightdatmeans %>%
+  separate(datex, c("date", "time"), " ")
+
+#Calculate daily light range
+lightdatmeans2 <- lightdatmeans %>%
+  dplyr::group_by(Site, date, Type) %>%
+  dplyr::summarize(dmin = min(Mean), dmax= max(Mean))%>%
+  dplyr::mutate(dailyrange=dmax-dmin)
+
+#Calculate mean daily light range
+rangemeans <- lightdatmeans2 %>%
+  dplyr::group_by(Type, Site) %>%
+  dplyr::summarize(meanrange=mean(dailyrange), sd=sd(dailyrange))
+
+#Test for differences
+lighttest <-lmer(log(dailyrange)~Type + (1|Site), data=lightdatmeans2)
+Anova(lighttest, test="F")
+check_model(lighttest)
+
+#Visualize differences
+rangefig <- ggplot(lightdatmeans2, aes(x=factor(Type, levels = c("Outer", "Inner")), 
+                                      y=sqrt(dailyrange), color=factor(Site, levels = c("Ngerur", "Outer Taoch", "Ngelsibel","Risong","Taoch","Mercherchar")), 
+                                      fill=factor(Site, levels = c("Ngerur", "Outer Taoch", "Ngelsibel","Risong","Taoch","Mercherchar"))))+
+  geom_violin(alpha=1/2)+
+  geom_beeswarm(dodge.width=.9)+
+  theme_classic()+
+  labs(x="",y="Daily light range: sqrt(lux)", fill="Site", color="Site")+
+  scale_color_manual(values=cols)+
+  scale_fill_manual(values=cols)+
+  theme(legend.position = "none")
+rangefig
+
+###$Daily max light
+lighttest <-lmer(log(dmax)~Type + (1|Site), data=lightdatmeans2)
+Anova(lighttest, test="F")
+check_model(lighttest)
+
+maxfig <- ggplot(lightdatmeans2, aes(x=factor(Type, levels = c("Outer", "Inner")), 
+                                    y=dmax, color=factor(Site, levels = c("Ngerur", "Outer Taoch", "Ngelsibel","Risong","Taoch","Mercherchar")), 
+                                    fill=factor(Site, levels = c("Ngerur", "Outer Taoch", "Ngelsibel","Risong","Taoch","Mercherchar"))))+
+  geom_violin(alpha=1/2)+
+  geom_beeswarm(dodge.width=.9)+  theme_classic()+
+  labs(x="",y="Daily max light: sqrt(lux)", fill="Site", color="Site")+
+  scale_color_manual(values=cols)+
+  theme_classic()+
+  scale_fill_manual(values=cols)+
+  theme(legend.position = "none")
+maxfig
+
+maxmean <- lightdatmeans2 %>%
+  dplyr::group_by(Type)%>%
+  dplyr::summarize(mean=mean(dmax), sd=sd(dmax))
+
+#Arrance figures
+tr <- ggarrange(lightfig1, labels="A")
+brow <- ggarrange(lightfigmean+geom_beeswarm(size=3/4, alpha=1/2, dodge.width=.9), 
+                  maxfig+geom_beeswarm(size=3/4, alpha=1/2, dodge.width=.9),
+                  rangefig+geom_beeswarm(size=3/4, alpha=1/2, dodge.width=.9),
+                  labels=c("B","C","D"), nrow=1)
+prow <- ggarrange(tr, brow
+                  , nrow=2)
+#End of light data analysis
