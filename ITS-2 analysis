@@ -10,6 +10,7 @@ unique(Sym_table$DIV)
 Sym_tablex$DIV<-factor(Sym_tablex$DIV, levels = c("A3.A3ac.A3ah.A3m.A3ae.A3ay","A3.A3ac.A3cr","A3.A3ac.A3ah.A3ay","C15.C93a","C15.C15vp.C15vt","C15.C15vp", "C15.C15bn.C15by", "C15.C15ev.C15dt","C15.C15by.C15er","C15.C15vn.C15vo","C15.C15bn" ,"C15.C15vn.C93a","C15bi.C15.C15ko","C15h.C15uz.C15uy"))
 
 #Make plot with DIVs
+#Note, outer sites are classic sites; inner sites are extreme sites
 indplot <- ggplot(Sym_tablex, aes(x=Sample, y=Rel_reads, fill=DIV))+ #factor(UID, levels = c("A3.A3ac.A3ah.A3m.A3ae.A3ay","A3.A3ac.A3cr","A3.A3ac.A3ah.A3ay","C15.C15vp.C15vt","C15.C93a","C15.C15vn.C15vo","C15.C15vp", "C15.C15ev.C15dt","C15.C15by.C15er","C15.C15bn.C15by","C15.C15bn" ,"C15bi.C15.C15ko","C15h.C15uz.C15uy","C15.C15vn.C93a"))
   geom_bar(position="fill", stat="identity")+
   scale_fill_manual(values=col2)+
