@@ -1,0 +1,383 @@
+module load perl
+module load bowtie
+module load samtools
+
+#Files on SRA are already deduplicated and trimmed.
+#gunzip files. 
+gunzip *
+
+##create genome mapping files 
+#grab genome 
+cp /scratch/Genome_ref/Host/plut_final_2.1.fasta .
+cp /scratch/Genome_ref/Sym/symABCD_genome.fasta .
+
+qrsh -pe omp 12 #this takes you to separate node, then you have to navigate back to correct folder! 
+module load bowtie2
+bowtie2-build Porites_lobata_v3.fa Porites_lobata_v3.fa
+bowtie2-build symABCD_genome.fasta symABCD_genome.fasta
+
+#Grab SymABCD file
+#map against sym ABCD to remove contamination that might jack up cryptics
+#------------ Mapping to Symbiodinaiceae, discarding reads that stick
+
+module load samtools
+samtools faidx symABCD_genome.fasta
+
+>mapsym
+for F in `ls *.trim`; do echo "bowtie2 -x symABCD_genome.fasta -U $F -S $F.sam">>mapsym; done
+
+module load bowtie2
+
+scc6_qsub_launcher.py -N mapsym -P bi594 -jobsfile mapsym
+
+#!/bin/bash
+#$ -V # inherit the submission environment
+#$ -cwd # start job in submission directory
+#$ -N mapsym # job name, anything you want
+#$ -l h_rt=48:00:00 #maximum run time
+#$ -M cgb.grupstra@gmail.com #your email
+#$ -m be
+
+Module load bowtie2
+qsub mapsym
+
+#Checked error list and looks good. <1% alignment in all or most samples
+
+# saving fastq reads that do NOT map to chr11-14 (Symbiodinium genomes)
+>sam2fq
+for S in `ls *.sam`; do
+F=`echo $S | perl -pe 's/\..+//'`;
+echo "cat $S | awk '\$3==\"*\"' | cut -f1,10,11 | sed 's/^/@/' | sed 's/\t/\n/' | sed 's/\t/\n+\n/' > $F.nosymbio.fastq">>sam2fq;
+done
+
+###Typed nano sam2fq, added the 7 lines with “bin bash” etc and submitted with qsub sam2fq
+#remove sym sam files
+rm -f *.sam
+
+#map to coral genome
+module load python3/3.8.10
+module load cutadapt/3.4
+
+2bRAD_bowtie2_launch.pl '\.nosymbio.fastq$' Porites_lobata_v3.fa > bt2
+
+scc6_qsub_launcher.py -N bt2 -P bi594 -jobsfile bt2
+
+#this should create a mapsym.array.qsub and a bt2_commands.txt files
+qsub bt2_array.qsub
+
+#Checked a bt2.o5237115 file and this is the output:
+#878753 reads; of these:
+#  878753 (100.00%) were unpaired; of these:
+#    136101 (15.49%) aligned 0 times
+#    328252 (37.35%) aligned exactly 1 time
+#    414400 (47.16%) aligned >1 times
+#84.51% overall alignment rate
+#Seems like mapping worked quite well!
+
+NSITES=`zcat plobata5.beagle.gz | wc -l`
+echo $NSITES
+
+#made a bass file with a list of bams file names
+
+#Removed clones by generating cluster dendrogram in RStudio and altering the bams file.
+nano bams
+#removed clones, saved as bams_noclones
+
+################Running angsd without clones
+
+###filter minIndDepth=2
+FILTERS="-uniqueOnly 1 -remove_bads 1 -minMapQ 20 -minQ 25 -dosnpstat 1 -doHWE 1 -sb_pval 1e-5 -hetbias_pval 1e-5 -skipTriallelic 1 -minInd 60 -setMinDepthInd 2 -snp_pval 1e-5 -minMaf 0.05"
+TODO="-doMajorMinor 1 -doMaf 1  -makeMatrix 1 -doCounts 1 -doIBS 1 -seed 10 -doCov 1 -doGeno 8 -doBcf 1 -doPost 1 -doGlf 2"
+module load angsd
+angsd -b bams_noclones -GL 1 $FILTERS $TODO -P 1 -out plobata_noclones2
+
+#Total number of sites analyzed: 6289147
+#Number of sites retained after filtering: 17183 
+
+###filter minIndDepth=3
+FILTERS="-uniqueOnly 1 -remove_bads 1 -minMapQ 20 -minQ 25 -dosnpstat 1 -doHWE 1 -sb_pval 1e-5 -hetbias_pval 1e-5 -skipTriallelic 1 -minInd 60 -setMinDepthInd 3 -snp_pval 1e-5 -minMaf 0.05"
+TODO="-doMajorMinor 1 -doMaf 1  -makeMatrix 1 -doCounts 1 -doIBS 1 -seed 10 -doCov 1 -doGeno 8 -doBcf 1 -doPost 1 -doGlf 2"
+module load angsd
+
+#Total number of sites analyzed: 6289147
+#Number of sites retained after filtering: 14162 
+
+###filter minIndDepth=4
+FILTERS="-uniqueOnly 1 -remove_bads 1 -minMapQ 20 -minQ 25 -dosnpstat 1 -doHWE 1 -sb_pval 1e-5 -hetbias_pval 1e-5 -skipTriallelic 1 -minInd 60 -setMinDepthInd 4 -snp_pval 1e-5 -minMaf 0.05"
+TODO="-doMajorMinor 1 -doMaf 1  -makeMatrix 1 -doCounts 1 -doIBS 1 -seed 10 -doCov 1 -doGeno 8 -doBcf 1 -doPost 1 -doGlf 2"
+module load angsd
+angsd -b bams_noclones -GL 1 $FILTERS $TODO -P 1 -out plobata_noclones4
+
+#Total number of sites analyzed: 6289147
+#Number of sites retained after filtering: 12003 
+
+###filter minIndDepth=5
+FILTERS="-uniqueOnly 1 -remove_bads 1 -minMapQ 20 -minQ 25 -dosnpstat 1 -doHWE 1 -sb_pval 1e-5 -hetbias_pval 1e-5 -skipTriallelic 1 -minInd 60 -setMinDepthInd 5 -snp_pval 1e-5 -minMaf 0.05"
+TODO="-doMajorMinor 1 -doMaf 1 -makeMatrix 1 -doCounts 1 -doIBS 1 -seed 10 -doCov 1 -doGeno 8 -doBcf 1 -doPost 1 -doGlf 2"
+module load angsd
+angsd -b bams_noclones -GL 1 $FILTERS $TODO -P 1 -out plobata_noclones5
+
+#Total number of sites analyzed: 6289147
+#Number of sites retained after filtering: 10365 
+
+###filter minIndDepth=6
+FILTERS="-uniqueOnly 1 -remove_bads 1 -minMapQ 20 -minQ 25 -dosnpstat 1 -doHWE 1 -sb_pval 1e-5 -hetbias_pval 1e-5 -skipTriallelic 1 -minInd 60 -setMinDepthInd 6 -snp_pval 1e-5 -minMaf 0.05"
+TODO="-doMajorMinor 1 -doMaf 1 -makeMatrix 1 -doCounts 1 -doIBS 1 -seed 10 -doCov 1 -doGeno 8 -doVcf 1 -doPost 1 -doGlf 2"
+module load angsd
+angsd -b bams_noclones -GL 1 $FILTERS $TODO -P 1 -out plobata_noclones6
+
+#Total number of sites analyzed: 6289147
+#Number of sites retained after filtering: 8933 
+
+##pulled the plobataN.ibsMat files and the bams to a folder on home computer and ran the script Plobata_Hclust.R to visualize the clustering of samples
+
+#------------------------------NgsAdmix
+
+# first, get:
+pwd
+/projectnb/davieslab/carsten/plob/bin
+
+wget popgen.dk/software/download/NGSadmix/ngsadmix32.cpp
+
+# Install software:
+g++ ngsadmix32.cpp -O3 -lpthread -lz -o NGSadmix 
+
+#Run software:
+for K in `seq 2 5` ;
+do
+../../bin/NGSadmix -likes plobata_noclones6.beagle.gz -K $K -P 10 -o mydata.noclone_k${K};
+done
+
+#scp *qopt files to local machine, use admixturePlotting_v5.R to plot
+
+
+
+##########################Analysis of genetic divergence
+# with all clones removed, we have 75 samples
+
+module load angsd/0.923
+
+#Generate VCF file for Fst
+
+###filter minIndDepth=6
+FILTERS="-uniqueOnly 1 -remove_bads 1 -minMapQ 20 -minQ 25 -dosnpstat 1 -doHWE 1 -sb_pval 1e-5 -hetbias_pval 1e-5 -skipTriallelic 1 -minInd 60 -setMinDepthInd 6"
+TODO="-doMajorMinor 1 -doMaf 1 -makeMatrix 1 -doCounts 1 -doIBS 1 -seed 10 -doCov 1 -doGeno 8 -doVcf 1 -doPost 1 -doGlf 2"
+
+angsd -b bams_noclones -GL 1 $FILTERS $TODO -P 1 -out plobata_Fst_file
+
+	-> Total number of sites analyzed: 6289147
+	-> Number of sites retained after filetering: 487248 
+
+###Calculate Fst based on all sites
+
+# filtering sites to work on - use only filters that do not distort allele frequency
+# set minInd to 75-90% of the total number for individuals in the project
+# if you are doing any other RAD than 2bRAD or GBS, remove '-sb_pval 1e-5' from FILTERS
+FILTERS="-uniqueOnly 1 -remove_bads 1  -skipTriallelic 1 -minMapQ 25 -minQ 30 -doHWE 1 -sb_pval 1e-5 -hetbias_pval 1e-5 -minInd 6" 
+TODO="-doMajorMinor 1 -doMaf 1 -dosnpstat 1 -doPost 2 -doGeno 11 -doGlf 2"
+
+angsd -b bams_noclones -GL 1 $FILTERS $TODO -out sfilt
+
+
+#output
+#-> Printing at chr: Porites_lobata_contig_114 pos:1409072 chunknumber 15100 contains 288 sitesKilled 
+
+# collecting and indexing filter-passing sites
+
+zcat sfilt.mafs.gz | cut -f 1,2 | tail -n +2 >allSites
+angsd sites index allSites
+
+export GENOME_REF=/projectnb/davieslab/carsten/plob/Porites_lobata_v3.fa
+TODO="-doSaf 1 -doMajorMinor 1 -doMaf 1 -doPost 1 -anc $GENOME_REF -ref $GENOME_REF"
+
+qrsh -pe omp 12 #James had to do 28 for qvc.
+
+cd /projectnb/davieslab/carsten/plob
+ 
+angsd -sites allSites -b L1.bams -GL 1 -P 1 $TODO -out L1
+
+angsd -sites allSites -b L2.bams -GL 1 -P 1 $TODO -out L2
+angsd -sites allSites -b L3.bams -GL 1 -P 1 $TODO -out L3
+
+realSFS L1.saf.idx > L1.sfs
+realSFS L2.saf.idx > L2.sfs
+realSFS L3.saf.idx > L3.sfs
+
+# writing down 2d-SFS priors - L1 vs L2
+realSFS L1.saf.idx L2.saf.idx -P 24 > p12.sfs ; realSFS fst index L1.saf.idx L2.saf.idx -sfs p12.sfs -fstout p12
+
+# global Fst between populations
+realSFS fst stats p12.fst.idx
+
+
+	-> FST.Unweight[nObs:1845503]:0.030973 Fst.Weight:0.245633
+
+
+# writing down 2d-SFS priors - L1 vs L3
+realSFS L1_noout.saf.idx L3_noout.saf.idx -P 24 > p13_noout.sfs ; realSFS fst index L1_noout.saf.idx L3_noout.saf.idx -sfs p13_noout.sfs -fstout p13_noout
+
+# global Fst between populations
+realSFS fst stats p13_noout.fst.idx
+
+	-> FST.Unweight[nObs:8295]:0.267027 Fst.Weight:0.473711
+
+# writing down 2d-SFS priors - L2 vs L3
+realSFS L2_noout.saf.idx L3_noout.saf.idx -P 24 > p23_noout.sfs ; realSFS fst index L2_noout.saf.idx L3_noout.saf.idx -sfs p23_noout.sfs -fstout p23_noout
+
+# global Fst between populations
+realSFS fst stats p23_noout.fst.idx
+
+	-> FST.Unweight[nObs:8296]:0.264227 Fst.Weight:0.460827
+
+
+#----- PGDspider :
+cd bin
+pwd
+/projectnb/davieslab/carsten/plob/bin
+
+wget http://www.cmpg.unibe.ch/software/PGDSpider/PGDSpider_2.0.7.1.zip
+unzip PGDSpider_2.0.7.1.zip
+
+#----- Bayescan :
+
+cd bin
+pwd
+/projectnb/davieslab/carsten/plob/bin
+
+wget http://cmpg.unibe.ch/software/BayeScan/files/BayeScan2.1.zip
+unzip BayeScan2.1.zip
+cp BayeScan2.1/binaries/BayeScan2.1_linux64bits bayescan
+chmod +x bayescan
+rm -r -f BayeScan*
+
+# Converting vcf (using PGDspider) to Bayescan format
+
+grep  -c -v "^#" plobata_Fst_file.vcf
+[loci]=487248
+
+# create a file called vcf2bayescan.spid containing this text:
+nano vcf2bayescan.spid
+
+echo "############
+# VCF Parser questions
+PARSER_FORMAT=VCF
+# Do you want to include a file with population definitions?
+VCF_PARSER_POP_QUESTION=true
+# Only input following regions (refSeqName:start:end, multiple regions: whitespace separated):
+VCF_PARSER_REGION_QUESTION=
+# What is the ploidy of the data?
+VCF_PARSER_PLOIDY_QUESTION=DIPLOID
+# Only output following individuals (ind1, ind2, ind4, ...):
+VCF_PARSER_IND_QUESTION=
+# Output genotypes as missing if the read depth of a position for the sample is below:
+VCF_PARSER_READ_QUESTION=
+# Take most likely genotype if "PL" or "GL" is given in the genotype field?
+VCF_PARSER_PL_QUESTION=true
+# Do you want to exclude loci with only missing data?
+VCF_PARSER_EXC_MISSING_LOCI_QUESTION=false
+# Select population definition file:
+VCF_PARSER_POP_FILE_QUESTION=./bspops
+# Only output SNPs with a phred-scaled quality of at least:
+VCF_PARSER_QUAL_QUESTION=
+# Do you want to include non-polymorphic SNPs?
+VCF_PARSER_MONOMORPHIC_QUESTION=false
+# Output genotypes as missing if the phred-scale genotype quality is below:
+VCF_PARSER_GTQUAL_QUESTION=
+# GESTE / BayeScan Writer questions
+WRITER_FORMAT=GESTE_BAYE_SCAN
+# Specify which data type should be included in the GESTE / BayeScan file  (GESTE / BayeScan can only analyze one data type per file):
+GESTE_BAYE_SCAN_WRITER_DATA_TYPE_QUESTION=SNP
+############" >vcf2bayescan.spid
+
+# converting vcf (either myresult.vcf from ANGSD or the one from GATK) to bayescan format
+java -Xmx49152m -Xms512m -jar /projectnb/davieslab/carsten/plob/bin/PGDSpider_2.0.7.1/PGDSpider2-cli.jar -inputfile plobata_Fst_file.vcf -outputfile Best.bayescan -spid vcf2bayescan.spid 
+
+# launching bayescan (Misha says this might take 12-24 hours so submitting as a job)
+head bayescan
+
+#!/bin/bash
+#$ -V # inherit the submission environment
+#$ -cwd # start job in submission directory
+#$ -N bayescan # job name, anything you want
+#$ -l h_rt=48:00:00 #maximum run time
+#$ -M casgrupstra@gmail.com #your email
+#$ -m be
+
+/projectnb/davieslab/carsten/plob/bin/bayescan Best.bayescan -threads=20
+
+qsub -pe omp 12 bayescan #Actually submitted this as a job
+
+#Number of loci = 487248. Correct with vcf file.
+
+#Getting ready to determine Fst based on file with no outliers removed
+export GENOME_REF=/projectnb/davieslab/carsten/plob/Porites_lobata_v3.fa
+
+#angsd sites index allSites
+export GENOME_REF=/projectnb/davieslab/carsten/plob/Porites_lobata_v3.fa
+
+TODO="-doSaf 1 -doMajorMinor 1 -doMaf 1 -doPost 1 -anc $GENOME_REF -ref $GENOME_REF"
+
+angsd -sites allSites -b L1.bams -GL 1 -P 1 $TODO -out L1_new
+
+
+#Now move file to computer to identify outliers using the bayescan_plot.R script. # July 24 2022
+
+##Received this code from James to remove outlier loci:
+
+#Best.baye_fst.txt is your bayescan output
+cut -d" " -f2- Best.baye_fst.txt | tail -n +2> aaa
+
+#find line number in vcf file that contains header
+grep -n "#CHROM" plobata_noclones6.vcf
+
+#13 #add 1
+tail --lines=+14 plobata_noclones6.vcf | cut -f 1,2 | paste --delimiters "\t" - aaa > baye_fst_pos.txt
+
+awk '$5>0.5 {print $1"\t"$2}' ./baye_fst_pos.txt > bayeOuts4DEMO
+
+#bayeOuts4DEMO is the list of neutral loci
+
+###Now rerunning the analysis with bayeOuts4DEMO instead of allSites
+
+angsd sites index bayeOuts4DEMO
+
+export GENOME_REF=/projectnb/davieslab/carsten/plob/Porites_lobata_v3.fa
+
+TODO="-doSaf 1 -doMajorMinor 1 -doMaf 1 -doPost 1 -anc $GENOME_REF -ref $GENOME_REF"
+
+angsd -sites bayeOuts4DEMO -b L1.bams -GL 1 -P 1 $TODO -out L1_noout
+angsd -sites bayeOuts4DEMO -b L2.bams -GL 1 -P 1 $TODO -out L2_noout
+angsd -sites bayeOuts4DEMO -b L3.bams -GL 1 -P 1 $TODO -out L3_noout
+
+# generating per-population SFS
+realSFS L1_noout.saf.idx >L1_noout.sfs
+realSFS L2_noout.saf.idx >L2_noout.sfs
+realSFS L3_noout.saf.idx >L3_noout.sfs
+
+# writing down 2d-SFS priors - L1 vs L2
+realSFS L1_noout.saf.idx L2_noout.saf.idx -P 24 > p12_noout.sfs ; realSFS fst index L1_noout.saf.idx L2_noout.saf.idx -sfs p12_noout.sfs -fstout p12_noout
+
+# global Fst between populations
+realSFS fst stats p12_noout.fst.idx
+
+#Output	-> FST.Unweight[nObs:8561]:0.175059 Fst.Weight:0.286104
+
+# writing down 2d-SFS priors - L1 vs L3
+realSFS L1_noout.saf.idx L3_noout.saf.idx -P 24 > p13_noout.sfs ; realSFS fst index L1_noout.saf.idx L3_noout.saf.idx -sfs p13_noout.sfs -fstout p13_noout
+
+# global Fst between populations
+realSFS fst stats p13_noout.fst.idx
+
+#Output > FST.Unweight[nObs:8484]:0.264934 Fst.Weight:0.468415
+
+# writing down 2d-SFS priors - L2 vs L3
+realSFS L2_noout.saf.idx L3_noout.saf.idx -P 24 > p23_noout.sfs ; realSFS fst index L2_noout.saf.idx L3_noout.saf.idx -sfs p23_noout.sfs -fstout p23_noout
+
+# global Fst between populations
+	⁃	realSFS fst stats p23_noout.fst.idx
+
+#Output 	-> FST.Unweight[nObs:8486]:0.262444 Fst.Weight:0.456489
+
+
+
+
