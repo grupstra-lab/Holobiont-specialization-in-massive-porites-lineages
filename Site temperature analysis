@@ -1,4 +1,11 @@
+#############################INTRO#############################
+#The scripts here generate the temperature and light analysis figures in the 2024 Grupstra et al. paper in Global Change Biology
+#Files needed: temperature_data.csv, lightdata.csv
+#Required packages: Tidyverse, lme4, performance, ggpubr, vegan, car, ggsignif, ggbeeswarm
+
 ############Temperature data
+#First set working directory
+#Load temperature data
 tempdat <- read.csv("temperature_data.csv")
 
 #Set site colors
