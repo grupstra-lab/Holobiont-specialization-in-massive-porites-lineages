@@ -1,0 +1,26 @@
+#Set working directory
+#Load appropriate files
+Sym_tablex<-read.csv("Supplementary Datafile 3_its2-seq.csv")
+
+#Create color string
+col2 <- c("#d7b5d8","#df65b0","#980043","#543005", "#CC6E0F","#F29E3B","#DFC27D","#F6E8C3", "#F5F5F5", "#C7EAE5", "#80CDC1","#35978F","#01665E","#003B30")
+unique(Sym_table$DIV)
+
+#Relevel order of DIVS
+Sym_tablex$DIV<-factor(Sym_tablex$DIV, levels = c("A3.A3ac.A3ah.A3m.A3ae.A3ay","A3.A3ac.A3cr","A3.A3ac.A3ah.A3ay","C15.C93a","C15.C15vp.C15vt","C15.C15vp", "C15.C15bn.C15by", "C15.C15ev.C15dt","C15.C15by.C15er","C15.C15vn.C15vo","C15.C15bn" ,"C15.C15vn.C93a","C15bi.C15.C15ko","C15h.C15uz.C15uy"))
+
+#Make plot with DIVs
+indplot <- ggplot(Sym_tablex, aes(x=Sample, y=Rel_reads, fill=DIV))+ #factor(UID, levels = c("A3.A3ac.A3ah.A3m.A3ae.A3ay","A3.A3ac.A3cr","A3.A3ac.A3ah.A3ay","C15.C15vp.C15vt","C15.C93a","C15.C15vn.C15vo","C15.C15vp", "C15.C15ev.C15dt","C15.C15by.C15er","C15.C15bn.C15by","C15.C15bn" ,"C15bi.C15.C15ko","C15h.C15uz.C15uy","C15.C15vn.C93a"))
+  geom_bar(position="fill", stat="identity")+
+  scale_fill_manual(values=col2)+
+  facet_grid(~factor(Type, levels=c("Outer", "Inner"))+Lineage, scales="free", space="free_x")+ 
+  theme_classic()+
+  labs(y="Relative abundance")+
+  theme(legend.position = "bottom")+
+  guides(fill=guide_legend(ncol=3))+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+ 
+  theme(panel.spacing = unit(0, "lines"))+
+  theme(strip.text.y = element_text(angle=0))
+indplot
