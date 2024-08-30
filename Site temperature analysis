@@ -262,7 +262,7 @@ maxmean <- lightdatmeans2 %>%
   dplyr::group_by(Type)%>%
   dplyr::summarize(mean=mean(dmax), sd=sd(dmax))
 
-#Arrance figures
+#Arrange figures
 tr <- ggarrange(lightfig1, labels="A")
 brow <- ggarrange(lightfigmean+geom_beeswarm(size=3/4, alpha=1/2, dodge.width=.9), 
                   maxfig+geom_beeswarm(size=3/4, alpha=1/2, dodge.width=.9),
