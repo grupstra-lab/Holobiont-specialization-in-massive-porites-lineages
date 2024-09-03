@@ -16,9 +16,8 @@ module load bowtie2
 bowtie2-build Porites_lobata_v3.fa Porites_lobata_v3.fa
 bowtie2-build symABCD_genome.fasta symABCD_genome.fasta
 
-#Grab SymABCD file
-#map against sym ABCD to remove contamination that might jack up cryptics
-#------------ Mapping to Symbiodinaiceae, discarding reads that stick
+#Grab concatenated SymABCD genome file
+#map against sym ABCD to remove contamination
 
 module load samtools
 samtools faidx symABCD_genome.fasta
@@ -50,7 +49,7 @@ F=`echo $S | perl -pe 's/\..+//'`;
 echo "cat $S | awk '\$3==\"*\"' | cut -f1,10,11 | sed 's/^/@/' | sed 's/\t/\n/' | sed 's/\t/\n+\n/' > $F.nosymbio.fastq">>sam2fq;
 done
 
-###Typed nano sam2fq, added the 7 lines with “bin bash” etc and submitted with qsub sam2fq
+###Typed nano sam2fq, added the lines with “bin bash” etc and submitted with qsub sam2fq
 #remove sym sam files
 rm -f *.sam
 
@@ -77,48 +76,14 @@ qsub bt2_array.qsub
 NSITES=`zcat plobata5.beagle.gz | wc -l`
 echo $NSITES
 
-#made a bass file with a list of bams file names
+#made a file with a list of bams file names
 
 #Removed clones by generating cluster dendrogram in RStudio and altering the bams file.
 nano bams
 #removed clones, saved as bams_noclones
 
 ################Running angsd without clones
-
-###filter minIndDepth=2
-FILTERS="-uniqueOnly 1 -remove_bads 1 -minMapQ 20 -minQ 25 -dosnpstat 1 -doHWE 1 -sb_pval 1e-5 -hetbias_pval 1e-5 -skipTriallelic 1 -minInd 60 -setMinDepthInd 2 -snp_pval 1e-5 -minMaf 0.05"
-TODO="-doMajorMinor 1 -doMaf 1  -makeMatrix 1 -doCounts 1 -doIBS 1 -seed 10 -doCov 1 -doGeno 8 -doBcf 1 -doPost 1 -doGlf 2"
-module load angsd
-angsd -b bams_noclones -GL 1 $FILTERS $TODO -P 1 -out plobata_noclones2
-
-#Total number of sites analyzed: 6289147
-#Number of sites retained after filtering: 17183 
-
-###filter minIndDepth=3
-FILTERS="-uniqueOnly 1 -remove_bads 1 -minMapQ 20 -minQ 25 -dosnpstat 1 -doHWE 1 -sb_pval 1e-5 -hetbias_pval 1e-5 -skipTriallelic 1 -minInd 60 -setMinDepthInd 3 -snp_pval 1e-5 -minMaf 0.05"
-TODO="-doMajorMinor 1 -doMaf 1  -makeMatrix 1 -doCounts 1 -doIBS 1 -seed 10 -doCov 1 -doGeno 8 -doBcf 1 -doPost 1 -doGlf 2"
-module load angsd
-
-#Total number of sites analyzed: 6289147
-#Number of sites retained after filtering: 14162 
-
-###filter minIndDepth=4
-FILTERS="-uniqueOnly 1 -remove_bads 1 -minMapQ 20 -minQ 25 -dosnpstat 1 -doHWE 1 -sb_pval 1e-5 -hetbias_pval 1e-5 -skipTriallelic 1 -minInd 60 -setMinDepthInd 4 -snp_pval 1e-5 -minMaf 0.05"
-TODO="-doMajorMinor 1 -doMaf 1  -makeMatrix 1 -doCounts 1 -doIBS 1 -seed 10 -doCov 1 -doGeno 8 -doBcf 1 -doPost 1 -doGlf 2"
-module load angsd
-angsd -b bams_noclones -GL 1 $FILTERS $TODO -P 1 -out plobata_noclones4
-
-#Total number of sites analyzed: 6289147
-#Number of sites retained after filtering: 12003 
-
-###filter minIndDepth=5
-FILTERS="-uniqueOnly 1 -remove_bads 1 -minMapQ 20 -minQ 25 -dosnpstat 1 -doHWE 1 -sb_pval 1e-5 -hetbias_pval 1e-5 -skipTriallelic 1 -minInd 60 -setMinDepthInd 5 -snp_pval 1e-5 -minMaf 0.05"
-TODO="-doMajorMinor 1 -doMaf 1 -makeMatrix 1 -doCounts 1 -doIBS 1 -seed 10 -doCov 1 -doGeno 8 -doBcf 1 -doPost 1 -doGlf 2"
-module load angsd
-angsd -b bams_noclones -GL 1 $FILTERS $TODO -P 1 -out plobata_noclones5
-
-#Total number of sites analyzed: 6289147
-#Number of sites retained after filtering: 10365 
+##Tried filter minIndDepth=2-6 for the following command and ran Hclust script in R to assess how well it worked. Used 6 because it is most conservative while still providing reliable results.
 
 ###filter minIndDepth=6
 FILTERS="-uniqueOnly 1 -remove_bads 1 -minMapQ 20 -minQ 25 -dosnpstat 1 -doHWE 1 -sb_pval 1e-5 -hetbias_pval 1e-5 -skipTriallelic 1 -minInd 60 -setMinDepthInd 6 -snp_pval 1e-5 -minMaf 0.05"
@@ -132,7 +97,6 @@ angsd -b bams_noclones -GL 1 $FILTERS $TODO -P 1 -out plobata_noclones6
 ##pulled the plobataN.ibsMat files and the bams to a folder on home computer and ran the script Plobata_Hclust.R to visualize the clustering of samples
 
 #------------------------------NgsAdmix
-
 # first, get:
 pwd
 /projectnb/davieslab/carsten/plob/bin
@@ -149,7 +113,6 @@ do
 done
 
 #scp *qopt files to local machine, use admixturePlotting_v5.R to plot
-
 
 
 ##########################Analysis of genetic divergence
@@ -178,10 +141,8 @@ TODO="-doMajorMinor 1 -doMaf 1 -dosnpstat 1 -doPost 2 -doGeno 11 -doGlf 2"
 
 angsd -b bams_noclones -GL 1 $FILTERS $TODO -out sfilt
 
-
 #output
 #-> Printing at chr: Porites_lobata_contig_114 pos:1409072 chunknumber 15100 contains 288 sitesKilled 
-
 # collecting and indexing filter-passing sites
 
 zcat sfilt.mafs.gz | cut -f 1,2 | tail -n +2 >allSites
@@ -190,12 +151,11 @@ angsd sites index allSites
 export GENOME_REF=/projectnb/davieslab/carsten/plob/Porites_lobata_v3.fa
 TODO="-doSaf 1 -doMajorMinor 1 -doMaf 1 -doPost 1 -anc $GENOME_REF -ref $GENOME_REF"
 
-qrsh -pe omp 12 #James had to do 28 for qvc.
+qrsh -pe omp 12 #Might have to go up to 28 for qvc.
 
 cd /projectnb/davieslab/carsten/plob
  
 angsd -sites allSites -b L1.bams -GL 1 -P 1 $TODO -out L1
-
 angsd -sites allSites -b L2.bams -GL 1 -P 1 $TODO -out L2
 angsd -sites allSites -b L3.bams -GL 1 -P 1 $TODO -out L3
 
@@ -208,26 +168,21 @@ realSFS L1.saf.idx L2.saf.idx -P 24 > p12.sfs ; realSFS fst index L1.saf.idx L2.
 
 # global Fst between populations
 realSFS fst stats p12.fst.idx
-
-
-	-> FST.Unweight[nObs:1845503]:0.030973 Fst.Weight:0.245633
-
+#-> FST.Unweight[nObs:1845503]:0.030973 Fst.Weight:0.245633
 
 # writing down 2d-SFS priors - L1 vs L3
 realSFS L1_noout.saf.idx L3_noout.saf.idx -P 24 > p13_noout.sfs ; realSFS fst index L1_noout.saf.idx L3_noout.saf.idx -sfs p13_noout.sfs -fstout p13_noout
 
 # global Fst between populations
 realSFS fst stats p13_noout.fst.idx
-
-	-> FST.Unweight[nObs:8295]:0.267027 Fst.Weight:0.473711
+#-> FST.Unweight[nObs:8295]:0.267027 Fst.Weight:0.473711
 
 # writing down 2d-SFS priors - L2 vs L3
 realSFS L2_noout.saf.idx L3_noout.saf.idx -P 24 > p23_noout.sfs ; realSFS fst index L2_noout.saf.idx L3_noout.saf.idx -sfs p23_noout.sfs -fstout p23_noout
 
 # global Fst between populations
 realSFS fst stats p23_noout.fst.idx
-
-	-> FST.Unweight[nObs:8296]:0.264227 Fst.Weight:0.460827
+#-> FST.Unweight[nObs:8296]:0.264227 Fst.Weight:0.460827
 
 
 #----- PGDspider :
@@ -239,7 +194,6 @@ wget http://www.cmpg.unibe.ch/software/PGDSpider/PGDSpider_2.0.7.1.zip
 unzip PGDSpider_2.0.7.1.zip
 
 #----- Bayescan :
-
 cd bin
 pwd
 /projectnb/davieslab/carsten/plob/bin
@@ -251,7 +205,6 @@ chmod +x bayescan
 rm -r -f BayeScan*
 
 # Converting vcf (using PGDspider) to Bayescan format
-
 grep  -c -v "^#" plobata_Fst_file.vcf
 [loci]=487248
 
@@ -321,8 +274,7 @@ angsd -sites allSites -b L1.bams -GL 1 -P 1 $TODO -out L1_new
 
 
 #Now move file to computer to identify outliers using the bayescan_plot.R script. # July 24 2022
-
-##Received this code from James to remove outlier loci:
+##Received this code from James Fifer to remove outlier loci:
 
 #Best.baye_fst.txt is your bayescan output
 cut -d" " -f2- Best.baye_fst.txt | tail -n +2> aaa
@@ -374,9 +326,9 @@ realSFS fst stats p13_noout.fst.idx
 realSFS L2_noout.saf.idx L3_noout.saf.idx -P 24 > p23_noout.sfs ; realSFS fst index L2_noout.saf.idx L3_noout.saf.idx -sfs p23_noout.sfs -fstout p23_noout
 
 # global Fst between populations
-	⁃	realSFS fst stats p23_noout.fst.idx
+realSFS fst stats p23_noout.fst.idx
 
-#Output 	-> FST.Unweight[nObs:8486]:0.262444 Fst.Weight:0.456489
+#Output -> FST.Unweight[nObs:8486]:0.262444 Fst.Weight:0.456489
 
 
 
