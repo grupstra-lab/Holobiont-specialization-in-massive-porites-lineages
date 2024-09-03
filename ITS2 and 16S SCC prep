@@ -1,0 +1,147 @@
+#this script separates ITS2 from 16S reads and does initial trimming of 16S reads. Scripts adapted from Colleen Bove: https://github.com/seabove7
+
+# unpack BBMap (will create new directory called bbmap)
+tar xopf BBMap_39.00.tar.gz
+
+# To test the installation run stats.sh against the PhiX reference genome (included in the BBTools download):
+/projectnb/davieslab/carsten/bbmap/stats.sh in=/projectnb/davieslab/carsten/bbmap/resources/phix174_ill.ref.fa.gz
+#looks good
+
+#make list of samples
+ls *R1_001.fastq.gz | cut -d 'L' -f1  > samples.list  
+
+example file name: H2_S72_L001_R1_001.fastq.gz
+
+## Remove reads that still have the adaptor sequence (they should not be there)
+nano adapt_rm.sh
+#---
+#!#/bin/bash
+for file in $(cat samples.list); do
+/projectnb/davieslab/carsten/bbmap/bbduk.sh in1=${file}L001_R1_001.fastq in2=${file}L001_R2_001.fastq ref=adaptors.fasta $
+done &>bbduk_NoIll.log
+# ---
+
+# You can check how many were removed like this: (I had none so nothing was removed)
+grep "Total Removed:" bbduk_NoIll.log 
+# example of what output should look like (x each sample)
+# Total Removed:          	0 reads (0.00%) 	0 bases (0.00%)
+
+#Nothing removed
+
+# moving these into new folder 
+mkdir its2redo_adapt_rm_files
+mv its2redo_run1m/*NoIll.fastq its2redo_adapt_rm_files 
+
+## Remove first 4 bases (degenerate primers created them). #(example name in sample.list: D8_S38_) (EXAMPLE FILE NAME: H4_S74_R2_NoIll.fastq)
+nano rm_4base.sh 
+#!/bin/bash
+
+for file in $(cat /projectnb/davieslab/carsten/plobmicrobe/its2redo_run1m/samples.list); do
+/projectnb/davieslab/carsten/bbmap/bbduk.sh in1=${file}R1_NoIll.fastq in2=${file}R2_NoIll.fastq ftl=4 out1=${file}R1_NoIll_No4N.fastq out2=${file}R2_NoIll_No4N.fastq; 
+done &>bbduk_No4N.log
+
+# moving these into 'degen_rm' direction
+mv its2redo_adapt_rm_files/*No4N.fastq its2redo_concat_degen_rm
+
+### ITS2 samples ----*
+## NOTE: If submitting to SymPortal, we want to keep the primers at request (but I am leaving that code here for reference)
+
+## ITS2 primers (SYM_VAR_REV/SYM_VAR_5.8S2) used in this run found at: https://docs.google.com/spreadsheets/d/17uY-MJKrKF1Jc9Tl8UJjtN__Rkg-okEH/edit#gid=1210254038
+
+# Forward ITS2 primer:  GAATTGCAGAACTCCGTGAACC
+# Reverse ITS2 primer:  CGGGTTCWCTTGTYTGACTTCATGC
+
+# saving these as a file to input
+nano ITS2_primers.fasta
+
+>forward
+GAATTGCAGAACTCCGTGAACC
+>reverse
+CGGGTTCWCTTGTYTGACTTCATGC
+
+## only keeping reads that start with the ITS2 primer
+# higher k = more reads removed, but cannot surpass k=20 or 21
+nano its_pull.sh
+# ---
+#!#/bin/bash
+
+for file in $(cat /projectnb/davieslab/carsten/plobmicrobe/its2redo_run1m/samples.list); do 
+/projectnb/davieslab/carsten/bbmap/bbduk.sh in1=${file}R1_NoIll_No4N.fastq in2=${file}R2_NoIll_No4N.fastq k=15 restrictleft=21 literal=GAATTGCAGAACTCCGTGAACC,CGGGTTCWCTTGTYTGACTTCATGC outm1=${file}R1_NoIll_No4N_ITS.fastq outu1=${file}R1_check.fastq outm2=${file}R2_NoIll_No4N_ITS.fastq outu2=${file}R2_check.fastq; 
+done &>bbduk_ITS.log
+
+# ---
+
+# moving these into 'ITS2_out_files' direction
+mv its2redo_concat_degen_rm/*check.fastq its2redo_ITS2_out_files/
+mv its2redo_concat_degen_rm/*ITS.fastq its2redo_ITS2_out_files/
+
+# copy the 'ITS.fastq' files to the ITS2_redo_dec2022_symportal directory (wihtin final) and then rename them
+cp its2redo_ITS2_out_files/*ITS.fastq ITS2_redo_dec2022_symportal
+
+#The next line removes the _NoIll_No4N text
+for file in *.fastq; do
+mv -- "$file" "${file/_NoIll_No4N/}"
+done
+
+## ----- Stopping here with the ITS2 files since SymPortal requests primers remain in the reads
+### 16S samples ----*
+
+## 16S primers (16s_806r/16s_515f) used in this run found at: https://docs.google.com/spreadsheets/d/17uY-MJKrKF1Jc9Tl8UJjtN__Rkg-okEH/edit#gid=1210254038
+
+# Forward 16S primer:  GTGYCAGCMGCCGCGGTAA
+# Reverse 16S primer:  GGACTACNVGGGTWTCTAAT
+
+# saving these as a file to input
+nano 16S_primers.fasta
+
+# ---
+>forward
+GTGYCAGCMGCCGCGGTAA
+>reverse
+GGACTACNVGGGTWTCTAAT
+# ---
+
+## only keeping reads that start with the 16S primer
+# higher k = more reads removed, but cannot surpass k=20 or 21
+nano 16s_pull.sh
+# ---
+#!#/bin/bash
+
+for file in $(cat /projectnb/davieslab/carsten/plobmicrobe/concat/samples.list); do 
+/projectnb/davieslab/carsten/bbmap/bbduk.sh in1=${file}_R1_NoIll_No4N.fastq in2=${file}_R2_NoIll_No4N.fastq k=10 restrictleft=20 literal=GTGYCAGCMGCCGCGGTAA,GGACTACNVGGGTWTCTAAT outm1=${file}_R1_NoIll_No4N_16S.fastq outu1=${file}_R1_16Scheck.fastq outm2=${file}_R2_NoIll_No4N_16S.fastq outu2=${file}_R2_16Scheck.fastq; 
+done &>bbduk_16S.log
+# ---
+
+# moving these into '16S_out_files' direction
+mv degen_rm_run1m/*16S.fastq run1m_16S_out_files/
+mv degen_rm_run1m/*16Scheck.fastq run1m_16S_out_files/
+
+## Use cutadapt to remove primer:
+module load cutadapt/4.1
+
+S9_R2_NoIll_No4N_16S.fastq
+
+nano cutprime.sh
+# ---
+#!#/bin/bash
+
+module load cutadapt/4.1
+
+for file in $(cat /projectnb/davieslab/carsten/plobmicrobe/concat/samples.list)
+do
+cutadapt -g GTGYCAGCMGCCGCGGTAA -a ATTAGAWACCCVNGTAGTCC -G GGACTACNVGGGTWTCTAAT -A TTACCGCGGCMGCTGYCAC -n 2 --discard-untrimmed -o ${file}_16S_R1.fastq -p ${file}_16S_R2.fastq ${file}_R1_NoIll_No4N_16S.fastq ${file}_R2_NoIll_No4N_16S.fastq
+done &> clip.log
+# ---
+
+# this will save the files as the original name (i.e., A1_16S_R1.fastq)
+
+## Move the final files to the '16S_29Jun22' directory
+mv 16S_out_files/*R1.fastq final_samples/16S_29Jun22/
+mv 16S_out_files/*R2.fastq final_samples/16S_29Jun22/
+
+#moved them to 
+#/projectnb/davieslab/carsten/plobmicrobe/concat_16s_dl
+
+#download to computer
+#on local session in /downloads:
+scp -r cgg4@scc1.bu.edu:/projectnb/davieslab/carsten/plobmicrobe/16sapril2023 ./
