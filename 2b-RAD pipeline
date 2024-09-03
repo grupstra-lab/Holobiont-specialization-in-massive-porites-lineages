@@ -1,3 +1,6 @@
+#This pipeline is based on the pipeline by Mikhail Matz as well as edited script by Hannah Aichelman and James Fifer. 
+#The various scripts used for analysis can be found here: https://github.com/z0on/2bRAD_denovo
+
 module load perl
 module load bowtie
 module load samtools
