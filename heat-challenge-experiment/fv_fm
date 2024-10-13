@@ -1,0 +1,158 @@
+library("tidyverse")
+library("stats")
+library("lme4")
+library("emmeans")
+library("performance")
+library("plotrix")
+
+#read in the datafiles
+#nubs<-read.csv(nubs, "Supplementary Datafile 8_FvFm.csv")
+
+#check the dataset
+unique(nubs$ID)
+table(nubs$Lineage)
+str(nubs)
+unique(nubs$ITS2)
+
+#run the model
+pamlm <- lmer(Average2~Treatment*Lineage*factor(Day, order=TRUE) + (1|CID), data=nubs)
+
+#test for significance of variables
+Anova(pamlm, test="F")
+check_model(pamlm)
+
+#posthoc test to compare between treatments for each colony
+emms<-emmeans(pamlm, ~Treatment|Lineage|Day)
+pairs(emms, interaction = "pairwise", adjust="Sidak") %>% rbind(adjust="Sidak")
+
+#posthoc test to compare between lineages for each treatment
+emms<-emmeans(pamlm, ~Lineage|Treatment|Day) 
+pairs(emms, interaction = "pairwise", adjustment= "fdr")  %>% rbind(adjust="fdr")
+
+####Generate figures
+#Calculate means
+colvec <- c("black", "red")
+
+nubmeans <- nubs %>%
+  dplyr::group_by(Treatment, Day, Lineage)%>%
+  dplyr::summarize(mean=mean(as.numeric(Average2)),sd=std.error(Average2))
+nubmeans
+
+nubmeans1 <- nubmeans %>% dplyr::filter(Lineage=="L1")
+
+shapevecl1 = c(7,7,7,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+               7,7,7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+
+meanplotl1 <- ggplot(nubmeans1, aes(x=Day, y=mean, color=Treatment))+
+  geom_line(aes(linetype=Treatment))+
+  geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd),width=0)+
+  geom_point(shape=shapevecl1, size=3)+ 
+  facet_wrap(~Lineage)+
+  scale_color_manual(values=colvec)+
+  theme_classic()+
+  theme(legend.position = "bottom")+
+  labs(y="Fv/Fm ± SE")+
+  scale_x_continuous(breaks=c(0,5,10,15,20,25))+
+  guides(color=guide_legend(title="Treatment"), linetype=guide_legend("Treatment"))+
+  theme(legend.position = "none")+
+  lims(y=c(0.25,0.65))+
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=1))+
+  geom_vline(xintercept=c(7.5,18.5), linetype=2, colour="#808080")+
+  annotate(geom = "text", x=c(-3.5,11.5,21), y=c(0.28,0.28,0.28), label=c("Thermal ramp","+3 °C","+4 °C"), color="#808080", hjust=0)#+ theme(plot.margin = unit(c(5.5, 5.5, 5.5, 0), "pt"))
+meanplotl1
+
+nubmeans2 <- nubmeans %>% dplyr::filter(Lineage=="L2")
+
+shapevecl2 = c(7,15, 7, 7,15,15,15,15,15,15,15,15,15,15,15,15,15,
+               7, 0, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+
+
+meanplotl2 <- ggplot(nubmeans2, aes(x=Day, y=mean, color=Treatment))+
+  geom_line(aes(linetype=Treatment))+
+  geom_point(shape=shapevecl2, size=3)+
+  geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd), width=0)+
+  facet_wrap(~Lineage)+
+  scale_color_manual(values=colvec)+
+  theme_classic()+
+  theme(legend.position = "bottom")+
+  labs(y="")+
+  scale_x_continuous(breaks=c(0,5,10,15,20,25))+
+  guides(color=guide_legend(title="Treatment"), linetype=guide_legend("Treatment"))+
+  theme(legend.position = "none")+
+  lims(y=c(0.25,0.65))+
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=1))+
+  geom_vline(xintercept=c(7.5,18.5), linetype=2, colour="#808080")+
+  annotate(geom = "text", x=c(-3.5,11.5,21), y=c(0.28,0.28,0.28), label=c("Thermal ramp","+3 °C","+4 °C"), color="#808080", hjust=0)
+meanplotl2
+
+nubmeans3 <- nubmeans %>% dplyr::filter(Lineage=="L3")
+
+shapevecl3 = c(7,7,7,7,7,15,15,15,15,15,15,15,15,15,15,15,15,
+               7,7,7,7,7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+
+meanplotl3 <- ggplot(nubmeans3, aes(x=Day, y=mean, color=Treatment))+
+  geom_line(aes(linetype=Treatment))+
+  geom_point(shape=shapevecl3, size=3)+
+  geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd),width=0)+
+  facet_wrap(~Lineage)+
+  scale_color_manual(values=colvec)+
+  theme_classic()+
+  theme(legend.position = "bottom")+
+  labs(y="")+
+  scale_x_continuous(breaks=c(0,5,10,15,20,25))+
+  guides(guides(color=guide_legend(title="Treatment"), linetype=guide_legend(title="Treatment")))+
+  lims(y=c(0.25,0.65))+
+  theme(legend.position = c(0.2, 0.4), legend.background = element_rect(fill = "white", color = "white"))+
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=1))+
+  geom_vline(xintercept=c(7.5,18.5), linetype=2, colour="#808080")+
+  annotate(geom = "text", x=c(-3.5,11.5,21), y=c(0.28,0.28,0.28), label=c("Thermal ramp","+3 °C","+4 °C"), color="#808080", hjust=0)
+meanplotl3
+
+
+plot_grid(meanplotl1, meanplotl2, meanplotl3, nrow=1)
+
+lincolor <- c("#edd447", "#125947",  "#8669d7")
+
+pointcols = c("black","white")
+
+shapevec= c(7,7,7, #1
+            7,7,7, #2
+            7,7,7, #3
+            7,7,7, #4
+            7,7,7, #5
+            7,7,7, #6
+            7,7,7, #8
+            0,0,15, #10
+            0,7,15, #12
+            0,7,15, #14
+            7,7,7, #16
+            0,15,15, #18
+            0,15,15, #19
+            0,15,15, #20
+            0,15,15, #21
+            0,15,15, #23
+            0,15,0 #25
+)
+
+nubmeansh <- nubmeans %>%
+  filter(Treatment == "H")
+
+meanploth <- ggplot(nubmeansh, aes(x=Day, y=mean, color=Lineage))+
+  geom_line(aes(color=factor(Lineage, levels= c("L1", "L2","L3"))),linetype=1,  linewidth=1.2)+ 
+  geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd),width=0, color="black")+ 
+  scale_color_manual(values=lincolor)+
+  theme_classic()+
+  lims(x=c(0,25))+
+  theme(legend.position = "bottom")+
+  labs(y="Fv/Fm ± SE")+
+  scale_x_continuous(breaks=c(0,5,10,15,20,25))+
+  geom_point(aes(), size=3, color="black", shape=shapevec,position=position_dodge(width=0.4))+  
+  theme(legend.position = c(0.1, 0.3), legend.background = element_rect(fill = "white", color = "white"))+
+  theme(legend.position="none")+
+  geom_vline(xintercept=c(7.5,18.5), linetype=2, colour="#808080")+
+  ylim(0.3,0.68)
+meanploth
+
+toprow <- plot_grid(meanplotl1,meanplotl2,meanplotl3, nrow=1) 
+plx<-plot_grid(toprow, meanploth, nrow=2, labels=c("A","B"))
+plx
