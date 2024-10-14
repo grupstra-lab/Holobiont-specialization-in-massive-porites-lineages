@@ -1,0 +1,156 @@
+#Read in data
+#color<-read.csv("Supplementary Datafile 9_paling.csv")
+
+#Ensure coloration data are numeric
+color$Color = as.numeric(unlist(color$Color))
+
+#Formulate liner model and conduct F tests
+pamlm <- lmer(Color~Treatment*Lineage*fDay + (1|CID), data=color)
+Anova(pamlm, test="F")
+
+#Check model assumptions
+check_model(pamlm)
+hist(resid(pamlm))
+qqmath(pamlm)
+
+##Post hoc tests, Comparisons between treatments within lineages and days
+emms<-emmeans(pamlm, ~Treatment|factor(fDay, order=TRUE)|Lineage)
+pairs(emms, interaction = "pairwise", adjust="fdr") %>% rbind(adjust="fdr")
+
+#Generate figures of coloration
+library("plotrix")
+colvec <- c("black", "red")
+
+colormeans <- color %>%
+  dplyr::group_by(Treatment,Day,Lineage)%>%
+  dplyr::summarize(meancolor=mean(as.numeric(Color)), sd=std.error(as.numeric(Color)))
+colormeans
+
+colormeansL1 <- colormeans %>%
+  filter(Lineage =="L1")
+
+colorsigshape = c(7,7,15,15,15,15,7,7,0,0,0,0)
+
+meanplotcolL1 <- ggplot(colormeansL1, aes(x=Day, y=meancolor, color=Treatment))+
+  geom_point(shape=colorsigshape, size=3)+
+  geom_line(aes(linetype=Treatment))+
+  geom_errorbar(aes(ymin=meancolor-sd, ymax=meancolor+sd),width=0)+
+  facet_wrap(~Lineage)+
+  scale_color_manual(values=colvec)+
+  theme_classic()+
+  labs(y="Grey intensity (%) ± SE")+
+  theme(legend.position="none")+
+  scale_x_continuous(breaks=c(0,5,10,15,20,25))+
+  lims(y=c(25,90))+
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=1)) + scale_y_reverse(limits=c(90,25)) +#+ theme(plot.margin = unit(c(5.5, 0, 5.5, 5.5), "pt"))
+  geom_vline(xintercept=c(7.5,18.5), linetype=2, colour="#808080")+
+  annotate(geom = "text", x=c(-3,11.5,21), y=c(85,85,85), label=c("Thermal ramp","+3 °C","+4 °C"), color="#808080", hjust=0)
+meanplotcolL1
+
+colormeansL2 <- colormeans %>%
+  filter(Lineage =="L2")
+
+colorsigshape = c(7,7,15,15,15,15,7,7,0,0,0,0)
+
+meanplotcolL2 <- ggplot(colormeansL2, aes(x=Day, y=meancolor, color=Treatment))+
+  geom_point(shape=colorsigshape, size=3)+
+  geom_line(aes(linetype=Treatment))+
+  geom_errorbar(aes(ymin=meancolor-sd, ymax=meancolor+sd),width=0)+
+  facet_wrap(~Lineage)+
+  scale_color_manual(values=colvec)+
+  theme_classic()+
+  labs(y="Grey intensity (%) ± SE")+
+  labs(y="")+
+  theme(legend.position="none")+
+  scale_x_continuous(breaks=c(0,5,10,15,20,25))+
+  lims(y=c(25,90))+
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=1)) + scale_y_reverse(limits=c(90,25))+#+ theme(plot.margin = unit(c(5.5, 0, 5.5, 5.5), "pt"))
+  geom_vline(xintercept=c(7.5,18.5), linetype=2, colour="#808080")+
+  annotate(geom = "text", x=c(-3,11.5,21), y=c(85,85,85), label=c("Thermal ramp","+3 °C","+4 °C"), color="#808080", hjust=0)#+ theme(plot.margin = unit(c(5.5, 0, 5.5, 0), "pt"))
+meanplotcolL2
+
+colormeansL3 <- colormeans %>%
+  filter(Lineage =="L3")
+
+colorsigshape = c(7,7,15,15,15,15,7,7,0,0,0,0)
+
+meanplotcolL3 <- ggplot(colormeansL3, aes(x=Day, y=meancolor, color=Treatment))+
+  geom_point(shape=colorsigshape, size=3)+
+  geom_line(aes(linetype=Treatment))+
+  geom_errorbar(aes(ymin=meancolor-sd, ymax=meancolor+sd),width=0)+
+  facet_wrap(~Lineage)+
+  scale_color_manual(values=colvec)+
+  theme_classic()+
+  labs(y="Grey intensity (%) ± SE")+
+  labs(y="")+
+  theme(legend.position="none")+
+  scale_x_continuous(breaks=c(0,5,10,15,20,25))+
+  lims(y=c(25,90))+
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=1)) + scale_y_reverse(limits=c(90,25))+theme(legend.position = c(0.15, 0.4), legend.background = element_rect(fill = "white", color = "white"))+ #+ theme(plot.margin = unit(c(5.5, 0, 5.5, 5.5), "pt"))
+  geom_vline(xintercept=c(7.5,18.5), linetype=2, colour="#808080")+
+  annotate(geom = "text", x=c(-3,11.5,21), y=c(85,85,85), label=c("Thermal ramp","+3 °C","+4 °C"), color="#808080", hjust=0)#+ theme(plot.margin = unit(c(5.5, 5.5, 5.5, 0), "pt"))
+meanplotcolL3
+
+bottomrowcol <-plot_grid(meanplotcolL1,meanplotcolL2,meanplotcolL3, nrow=1)
+
+######Relative change in coloration
+#split up control and heat data
+nubxh <- color %>%
+  filter(Treatment=="H")
+
+nubxc <- color %>%
+  filter(Treatment=="C")
+
+dftrel<- merge(nubxc,nubxh, by= c("ID","Day"))  
+dftrel
+
+relnub <- dftrel %>%
+  dplyr::group_by("ID","Lineage.x", "Day.x","CID")%>%
+  dplyr::mutate(relcol=as.numeric(Color.y)-as.numeric(Color.x))
+relnub$relcol
+
+#formulate linear model
+pamlm <- lmer(as.numeric(relcol)~factor(Day)*Lineage.x + (1|CID.x), data=relnub)
+Anova(pamlm, test="F")
+check_model(pamlm)
+
+emms<-emmeans(pamlm, ~Lineage.x|factor(Day)) 
+contrast(emms, interaction = "pairwise", adjust="bonferroni")
+
+#Means plot for publication
+relnubmeans <- relnub %>%
+  dplyr::group_by(Treatment.x, Day, Lineage.x)%>%
+  dplyr::summarize(mean=mean(relcol), se=std.error(relcol))
+
+shapevec= c(7,7,7, #0
+            7,7,7, #5
+            0,7,15, #10
+            0,7,15, #16
+            0,7,15, #20
+            0,15, 7 #25
+)
+shapevec= c(7,7,7, #0
+            7,7,7, #5
+            7,7,7, #10
+            7,7,7, #16
+            0,7,15, #20
+            7,7, 7 #25
+)
+
+lincolor <- c("#edd447", "#125947",  "#8669d7")
+
+meanplotrelcol <- ggplot(relnubmeans, aes(x=Day, y=mean, color=Lineage.x))+
+  geom_line(aes(color=Lineage.x),linetype=1,  linewidth=1.2)+ 
+  scale_color_manual((levels= lincolor))+
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se),width=0, color="black")+ 
+  scale_color_manual(values=lincolor)+
+  theme_classic()+
+  theme(legend.position = "bottom")+
+  labs(y="Δ grey intensity ± SE")+
+  scale_x_continuous(breaks=c(0,5,10,15,20,25))+
+  geom_point(aes(), size=3, color="black", shape=shapevec,position=position_dodge(width=0.8))+  
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=1))+ guides(color=guide_legend(title="Lineage"))+ scale_y_reverse(limits=c(50,-10))+ geom_vline(xintercept=c(7.5,18.5), linetype=2, colour="#808080")+
+  annotate(geom = "text", x=c(2,13.5,22.5), y=c(-8,-8,-8), label=c("Thermal ramp","+3 °C","+4 °C"), color="#808080", hjust=0)
+meanplotrelcol
+
+plot_grid(bottomrowcol, meanplotrelcol, nrow=2, labels=c("A","B"))
