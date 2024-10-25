@@ -1,0 +1,140 @@
+###########################
+######Polyp densities######
+
+#Read in datafile
+polyps<-read.csv("Supplementary Datafile 5_polypdensity.csv")
+
+#Calculate means
+polypsmean <- polyps %>%
+  dplyr::group_by(ID, Lineage, Type, Origin)%>%
+  dplyr::summarize(meanpolyp=mean(Polyps))
+
+#Statistics
+polypstest <- lm(meanpolyp~Type+Lineage, data=polypsmean)
+Anova(polypstest, test="F")
+check_model(polypstest)
+
+emms<-emmeans(polypstest, ~Lineage, adjust="Tukey")
+contrast(emms, interaction = "pairwise")
+
+#Lineage by reef type figure
+reefcolors=c("Red","Blue")
+polypplot <- ggplot (polypsmean, aes(x=Lineage, y=meanpolyp, color=Type))+
+  geom_boxplot()+
+  geom_point(position=position_dodge(0.75))+
+  theme_classic()+
+  ylab(bquote('Polyps '(mm^-2)))+
+  scale_color_manual(values=reefcolors, labels= c("Extreme", "Classic"), name="Reef type")
+polypplot
+
+#Calculate means and standard deviation
+polypsmeanmean = polypsmean %>%
+  na.omit()%>%
+  dplyr::group_by(Lineage)%>%
+  dplyr::summarize(meanmean = mean(meanpolyp), se=std.error(meanpolyp), sd=sd(meanpolyp))
+
+#Generate polyp density plot
+lincolor <- c("#edd447", "#125947",  "#8669d7")
+
+polypplot <- ggplot (polypsmeanmean, aes(x=Lineage, y=meanmean, fill=Lineage))+
+  theme_classic()+
+  geom_point( size=4, shape=24, color="black")+
+  scale_shape_manual(values=c(22,21))+
+  geom_beeswarm(data=polypsmean,color="black",  alpha=1/3, size=2.5, aes(y=meanpolyp, fill=Lineage, shape=Type, x=Lineage))+
+  labs(y= "Polyps mm-2 (± SE)")+
+  geom_signif(comparisons = list(c("L1","L2")), y_position = 4, 
+             tip_length = 0, vjust = .1, annotation="*", color="black")+
+  geom_signif(comparisons = list(c("L2","L3")), y_position = 3.9,
+              tip_length = 0, vjust = .1, annotation="**", color="black")+
+  scale_color_manual(values=lincolor)+
+  scale_fill_manual(values=lincolor)+
+  theme(legend.position = "none")+
+    geom_errorbar(aes(ymin=meanmean-se, ymax=meanmean+se,width=0))
+polypplot
+
+###############################################
+##################Optical traits###############
+#Load data
+ph <- read.csv("Supplementary Datafile 6-opticaltraits.csv")
+
+#Calculate means and standard errors
+ph2<- ph %>%
+  group_by(Lineage)%>%
+  dplyr::summarize(meanastar=mean(astar_host_Chla), astarse=std.error(astar_host_Chla),
+            meanchl=mean(pg.Chl.a.cell.1), chlse=std.error(pg.Chl.a.cell.1), 
+            meancell=mean(Cell.cm.2), secell=std.error(Cell.cm.2),
+            meansymastar=mean(m2.symbiont.1), sesymastar=std.error(m2.symbiont.1),
+            meanchlcm = mean(ug.chla.cm.2), sechlcm=std.error(ug.chla.cm.2))
+
+#######Chlorophyll per cm
+#Statistics
+ph$ug.chla.cm.2
+chlacm2 <- lm(ug.chla.cm.2~Lineage+Type, data=ph)
+Anova(chlacm2)
+
+emms<-emmeans(chlacm2, ~Lineage, adjust="Tukey") 
+contrast(emms, interaction = "pairwise") %>% rbind(adjust="Bonferroni")
+
+#Generate figure
+chlacm <- ggplot(ph2, aes(x=Lineage, y=meanchlcm, fill=Lineage))+ 
+  geom_point(shape=24, size=4, aes(fill=Lineage))+
+  scale_fill_manual(values=lincolor)+
+  geom_errorbar(aes(ymin=meanchlcm-sechlcm, ymax=meanchlcm+sechlcm), width=0)+
+  theme_classic()+
+  geom_beeswarm(data=ph, aes(y=ug.chla.cm.2, shape=Type, fill=Lineage), alpha=1/3, size=3)+
+  scale_shape_manual(values=c(22,21))+
+  scale_color_manual(values=lincolor)+
+  labs(y="Chla (μg cm-2)")+
+  geom_signif(comparisons = list(c("L1","L2")), y_position = 1.0, 
+              tip_length = 0, vjust = .1, annotation="*", color="black")+
+  geom_signif(comparisons = list(c("L2","L3")), y_position = 1.05, 
+              tip_length = 0, vjust = .1, annotation="**", color="black")+
+  geom_signif(comparisons = list(c("L1","L3")), y_position = 1.1, 
+              tip_length = 0, vjust = .1, annotation="**", color="black")+
+  theme(legend.position = "none")
+chlacm
+
+###########Astar host
+#Statistics
+astar <- lm(astar_host_Chla~Lineage+Type, data=ph)
+Anova(astar)
+emms<-emmeans(astar, ~Lineage, adjust="Tukey") 
+contrast(emms, interaction = "pairwise") %>% rbind(adjust="Bonferroni")
+check_model(astar)
+
+#Generate figure
+astorhost <- ggplot(ph2, aes(x=Lineage, y=meanastar, fill=Lineage))+ 
+  geom_point(shape=24, size=4, aes(fill=Lineage))+
+  scale_fill_manual(values=lincolor)+
+  geom_errorbar(aes(ymin=meanastar-astarse, ymax=meanastar+astarse), width=0)+
+  theme_classic()+
+  geom_beeswarm(data=ph, aes(y=astar_host_Chla, shape=Type, fill=Lineage), alpha=1/3, size=3)+
+  scale_shape_manual(values=c(22,21))+
+  scale_color_manual(values=lincolor)+
+  labs(y="a*Chla (m2 mg Chla-1)")+
+  geom_signif(comparisons = list(c("L1","L2")), y_position = 1.3, 
+              tip_length = 0, vjust = .1, annotation="**", color="black")+
+  geom_signif(comparisons = list(c("L1","L3")), y_position = 1.35, 
+              tip_length = 0, vjust = .1, annotation="**", color="black")+
+  theme(legend.position = "none")
+astorhost
+
+######Generate figure of astar by chla
+lincolor2 <- c("#edd447", "#125947",   "#8669d7")
+
+chl <- ggplot(ph, aes(x=ug.chla.cm.2, y=astar_host_Chla, fill=Lineage))+ 
+  scale_fill_manual(values=lincolor2)+
+  theme_classic()+
+  geom_point(size=3, alpha=4/5, aes(shape=Type))+
+  scale_shape_manual(values=c(22,21))+
+  theme(legend.position = "none")+
+  labs(x="Chla (μg cm-2)", y="a*Chla (m2 mg Chla-1)")+
+  stat_ellipse(alpha=1,aes(color=Lineage), level=0.68)+
+  scale_color_manual(values=lincolor2)
+chl
+
+###Grids
+library(cowplot)
+p2<-plot_grid(polypplot, chlacm, astorhost, nrow=1, labels=c("A","B","C"))
+p3<- plot_grid(chl, NULL, labels=c("D"), ncol=2, rel_widths = c(0.8, 0.2))
+plot_grid(p2, p3, nrow=2, rel_widths = c(1))
